@@ -58,7 +58,7 @@
 #define CHARS_SBCS 256
 
 
-/* $fontx2 ¥Õ¥¡¥¤¥ë¤Î¥Ø¥Ã¥À¾ðÊó */
+/* $fontx2 file header information */
 typedef struct {
     char id[ID_LEN];
     char name[NAM_LEN];
@@ -68,7 +68,7 @@ typedef struct {
 } fontx_h;
 
 
-/* ³ÊÇ¼¤·¤Æ¤¤¤ëÊ¸»ú¤ÎÉ½ */
+/* Table of stored characters */
 typedef struct {
     unsigned short start;
     unsigned short end;
@@ -132,19 +132,18 @@ char *temp()
 }
 
 
-/* ¥Ð¥¤¥È¤ÎÊ¬²ò¤È¹çÀ® */
+/* Byte decomposition and composition */
 #define lobyte(x) (((unsigned short)(x)) & 0xff)
 #define hibyte(x) ((((unsigned short)(x)) >> 8) & 0xff)
 #define hilo(h,l) ((((unsigned char)(h)) << 8) | ((unsigned char)(l)))
 
 
-/*
- * ¥·¥Õ¥ÈJIS¥¨¥ó¥³¡¼¥Ç¥£¥ó¥°¤Î³µÍ×
- *
- * ¡¦¾å°Ì¥Ð¥¤¥È [¶è] (0x21..0x7e) ¤ò (0x81..0x9f), (0xe0..0xef) ¤Ë³ä¤êÅö¤Æ¤ë
- * ¡¦²¼°Ì¥Ð¥¤¥È [ÅÀ] (0x21..0x7e) ¤ò
- *       ´ñ¿ô¶è¤Ê¤é (0x40..0x7e), (0x80..0x9e) ¤Ë³ä¤êÅö¤Æ¤ë
- *       ¶ö¿ô¶è¤Ê¤é (0x9f..0xcf) ¤Ë³ä¤êÅö¤Æ¤ë
+/* Overview of Shift JIS encoding
+Â *
+Â * ãƒ» The upper byte [division] (0x21..0x7e) is assigned to (0x81..0x9f), (0xe0..0xef)
+Â * ãƒ» Lower byte [point] (0x21..0x7e)
+Â * If it is an odd number, assign it to (0x40..0x7e), (0x80..0x9e)
+Â * If it is an even number, assign it to (0x9f..0xcf)
  */
 
 #define JIS_START 0x21
@@ -157,7 +156,7 @@ char *temp()
 #define SJIS_LS1 0x40
 #define SJIS_LS2 0x9f
 
-/* JIS¤ò¥·¥Õ¥ÈJIS¤ËÊÑ´¹ */
+/* Convert JIS to Shift JIS */
 int jtos(unsigned short ch)
 {
     int x, y;
@@ -165,26 +164,26 @@ int jtos(unsigned short ch)
 
     hi = hibyte(ch);
     lo = lobyte(ch);
-    /* ¾å°Ì¥Ð¥¤¥È¤Î½èÍý */
+    /* High byte processing */
     x = (hi - JIS_START) / 2 + SJIS_HS1;
     if (x > SJIS_HE1) {
 	x += (SJIS_HS2 - SJIS_HE1 - 1);
     }
-    /* ²¼°Ì¥Ð¥¤¥È¤Î½èÍý */
-    if (hi % 2 == 1) {			/* ´ñ¿ô¶è */
+    /* Low byte processing */
+    if (hi % 2 == 1) {			/* Odd area */
 	y = lo - JIS_START + SJIS_LS1;
 	if (y >= DELETE) {
 	    ++y;
 	}
     }
-    else {				/* ¶ö¿ô¶è */
+    else {				/* Even zone */
 	y = lo - JIS_START + SJIS_LS2;
     }
     return(hilo(x, y));
 }
 
 
-/* BDF¥Õ¥¡¥¤¥ë¤òÆÉ¤ó¤Ç¡¢Ãæ´Ö¥Õ¥¡¥¤¥ë¤Ë½ñ¤¯ */
+/* Read BDF file and write to intermediate file */
 int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab)
 {
     char s[BUFSIZ];
@@ -200,7 +199,8 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab)
     *ntab = 0;
     chars = 0;
     start = lastcode = 0;
-    convwidth = ((width + 7) / 8) * 8; /* ²£¥É¥Ã¥È¿ô¤ò8¤ÎÇÜ¿ô¤ËÀÚ¤ê¾å¤² */
+    /* Round up the number of horizontal dots to a multiple of 8. */
+    convwidth = ((width + 7) / 8) * 8;
     while(fgets(s, BUFSIZ, stdin) != NULL) {
 	if (match(s, "ENCODING") == 0) {
 	    sscanf(s, "ENCODING %d", &n);
@@ -248,7 +248,7 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab)
 void fontxheader(char *name, int width, int height, int type)
 {
     int i;
-    
+
     fputs("FONTX2", stdout);
     for (i = 0; i < FONTXNAMLEN; i++) {
 	if (name[i] == EOS) {
@@ -275,15 +275,15 @@ void codetable(FILE *co)
 	putc(lobyte(end), stdout);
 	putc(hibyte(end), stdout);
     }
-}	    
+}
 
 
 void main()
 {
     int width, height, type;
     char name[BUFSIZ];
-    char fcodetab[BUFSIZ];	/* ¥³¡¼¥ÉÉ½Ãæ´Ö¥Õ¥¡¥¤¥ë */
-    char fglyph[BUFSIZ];	/* ¥°¥ê¥ÕÃæ´Ö¥Õ¥¡¥¤¥ë */
+    char fcodetab[BUFSIZ];	/* Code table intermediate file */
+    char fglyph[BUFSIZ];	/* Glyph intermediate file */
     FILE *co, *gl;
     int n;
     int ntab;
