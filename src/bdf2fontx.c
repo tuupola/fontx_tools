@@ -85,19 +85,20 @@ int match(char *s, char *t)
  "FONT -%[^-]-%*[^-]-%*[^-]-%*[^-]-%*[^-]--%d-%*d-%*d-%*d-%*[^-]-%d-%[^-]-%*s"
 /*      jis   fixed  medium r      normal  14 130 75  75  C      70 jisx0201 */
 
-void bdfheader(char *name, int *width, int *height, int *type)
-{
+void bdfheader(char *name, int *width, int *height, int *type, int *xoffset, int *yoffset) {
     char s[BUFSIZ];
     char coding[BUFSIZ];
 
     *type = -1;
     *width = *height = -1;
+    *xoffset = *yoffset = 0;
     strcpy(name, "unknown");
     while (fgets(s, BUFSIZ, stdin) != NULL) {
 	if (match(s, "ENDPROPERTIES") == 0) {
 	    break;
 	}
-	if (match(s, "FONT") == 0) {
+	//if (match(s, "FONT") == 0) {
+    if (match(s, "FONT ") == 0) {
 	    sscanf(s, XLFDCONV, name, height, width, coding);
 	    *width /= 10;
 	    if (match(coding, "jisx0201") == 0) {
@@ -109,8 +110,10 @@ void bdfheader(char *name, int *width, int *height, int *type)
         else {
 		*type = 0;
 	    }
-	    break;
-	}
+    }
+	else if (match(s, "FONTBOUNDINGBOX") == 0) {
+	    sscanf(s, "FONTBOUNDINGBOX %*d %*d %d %d", xoffset, yoffset);
+ 	}
     }
 }
 
@@ -187,8 +190,7 @@ int jtos(unsigned short ch)
 
 
 /* Read BDF file and write to intermediate file */
-int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab)
-{
+int collect(FILE *co, FILE *gl, int width, int height, int type, int xoffset, int yoffset, int *ntab) {
     char s[BUFSIZ];
     int n;
     int y;
@@ -198,6 +200,9 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab)
     int start, lastcode;
     int code;
     int convwidth;
+    int bbh = height;
+    int bbox = 0;
+    int bboy = 0;
 
     *ntab = 0;
     chars = 0;
@@ -231,15 +236,31 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab)
 		if (fgets(s, BUFSIZ, stdin) == NULL) {
 		    break;
 		}
+            if (match(s, "BBX") == 0) {
+                sscanf(s, "BBX %*d %d %d %d", &bbh, &bbox, &bboy);
+            }
 	    }
-	    for (y = 0; y < height; y++) {
+	    int nbottom = bboy - yoffset; /* 下側に空けるライン数 */
+	    int ntop = height - bbh - nbottom; /* 上側に空けるライン数 */
+	    for (y = 0; y < ntop; y++) {
+		for (x = convwidth; x > 0; x -= 8) {
+		    putc(0, gl);
+		}
+	    }
+	    for (y = 0; y < bbh; y++) {
 		if (fgets(s, BUFSIZ, stdin) == NULL) {
 		    break;
 		}
 		sscanf(s, "%x", &p);
+        p >>= bbox - xoffset;
 		for (x = convwidth; x > 0; x -= 8) {
 		    b = (p >> (x - 8)) & 0xff;
 		    putc(b, gl);
+		}
+	    }
+        for (y = 0; y < nbottom; y++) {
+		for (x = convwidth; x > 0; x -= 8) {
+		    putc(0, gl);
 		}
 	    }
 	    fgets(s, BUFSIZ, stdin);
@@ -305,6 +326,7 @@ void codetable(FILE *co)
 int main()
 {
     int width, height, type;
+    int xoffset, yoffset;
     char name[BUFSIZ];
     char fcodetab[BUFSIZ];	/* Code table intermediate file */
     char fglyph[BUFSIZ];	/* Glyph intermediate file */
@@ -313,7 +335,7 @@ int main()
     int ntab;
     int ch;
 
-    bdfheader(name, &width, &height, &type);
+    bdfheader(name, &width, &height, &type, &xoffset, &yoffset);
     fprintf(stderr, "%s: %d x %d, type: %d\n", name, width, height, type);
     strcpy(fcodetab, temp());
     strcat(fcodetab, "/cXXXXXX.tbl");
@@ -327,7 +349,7 @@ int main()
 	fprintf(stderr, "can't open %s\n", fglyph);
 	exit(1);
     }
-    n = collect(co, gl, width, height, type, &ntab);
+    n = collect(co, gl, width, height, type, xoffset, yoffset, &ntab);
     if (fclose(co) != 0) {
 	fprintf(stderr, "can't close %s\n", fcodetab);
     }
