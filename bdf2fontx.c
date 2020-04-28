@@ -20,6 +20,8 @@
 #define HAVE_FSETBIN
 #undef  HAVE_STRNCASECMP
 #endif
+#include <wchar.h>
+#include <locale.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -203,6 +205,8 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
     int code;
     int convwidth;
 
+    setlocale(LC_ALL, "");
+
     *ntab = 0;
     chars = 0;
     start = 0;
@@ -212,9 +216,7 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
     while(fgets(s, BUFSIZ, stdin) != NULL) {
         if (match(s, "ENCODING") == 0) {
             sscanf(s, "ENCODING %d", &n);
-            // code = (n < 256) ? n : jtos(n);
             code = *sjis ? jtos(n) : n;
-            fprintf(stderr, "%d = %d\n", code, n);
             if (lastcode + 1 != code) {
                 if (start != 0) {
                     fprintf(co, "%04x %04x\n", start, lastcode);
@@ -226,7 +228,7 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
                     for (++lastcode; lastcode < code; ++lastcode) {
                         for (y = 0; y < height; y++) {
                             for (x = convwidth; x > 0; x -= 8) {
-                            putc(0, gl);
+                                putc(0, gl);
                             }
                         }
                     }
@@ -254,6 +256,8 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
             if (match(s, "ENDCHAR") != 0) {
                 fprintf(stderr, "no ENDCHAR at %d (0x%x)\n", n, n);
             } else {
+                fwprintf(stderr, L"%lc ", code);
+                fprintf(stderr, "%d (0x%x)\n", code, code);
                 ++chars;
             }
         }
