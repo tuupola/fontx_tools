@@ -219,6 +219,8 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
             code = *sjis ? jtos(n) : n;
             if (lastcode + 1 != code) {
                 if (start != 0) {
+                    fprintf(stderr, "Table %d %04x -> %04x\n", *ntab, start, lastcode);
+
                     fprintf(co, "%04x %04x\n", start, lastcode);
                     ++*ntab;
                 }
@@ -248,7 +250,9 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
                 sscanf(s, "%x", &p);
                 for (x = convwidth; x > 0; x -= 8) {
                     b = (p >> (x - 8)) & 0xff;
-                    putc(b, gl);
+                    if (code != 0) {
+                        putc(b, gl);
+                    }
                 }
             }
 
