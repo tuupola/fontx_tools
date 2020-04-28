@@ -302,7 +302,7 @@ void codetable(FILE *co)
 }
 
 
-void main()
+int main()
 {
     int width, height, type;
     char name[BUFSIZ];
