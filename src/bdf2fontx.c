@@ -106,6 +106,9 @@ void bdfheader(char *name, int *width, int *height, int *type)
 	    else if (match(coding, "jisx0208") == 0) {
 		*type = 1;
 	    }
+        else {
+		*type = 0;
+	    }
 	    break;
 	}
     }
@@ -198,19 +201,30 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab)
 
     *ntab = 0;
     chars = 0;
-    start = lastcode = 0;
+    start = 0;
+    lastcode = -1 /* For when there is code 0 */;
     /* Round up the number of horizontal dots to a multiple of 8. */
     convwidth = ((width + 7) / 8) * 8;
     while(fgets(s, BUFSIZ, stdin) != NULL) {
 	if (match(s, "ENCODING") == 0) {
 	    sscanf(s, "ENCODING %d", &n);
-	    code = jtos(n);
+        code = (n < 256) ? n : jtos(n);
 	    if (lastcode + 1 != code) {
 		if (start != 0) {
 		    fprintf(co, "%04x %04x\n", start, lastcode);
 		    ++*ntab;
 		}
 		start = code;
+        /* ANK font is embedded. TODO: If out of order */
+        if (type == 0) {
+		    for (++lastcode; lastcode < code; ++lastcode) {
+			for (y = 0; y < height; y++) {
+			    for (x = convwidth; x > 0; x -= 8) {
+				putc(0, gl);
+			    }
+			}
+		    }
+		}
 	    }
 	    lastcode = code;
 	    while (match(s, "BITMAP") != 0) {
@@ -239,6 +253,16 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab)
     }
     fprintf(co, "%x %x\n", start, lastcode);
     ++*ntab;
+    /* ANK font fills up to 0xff */
+    if (type == 0) {
+	for (++lastcode; lastcode < 256; ++lastcode) {
+	    for (y = 0; y < height; y++) {
+		for (x = convwidth; x > 0; x -= 8) {
+		    putc(0, gl);
+		}
+	    }
+	}
+    }
     return(chars);
 }
 
