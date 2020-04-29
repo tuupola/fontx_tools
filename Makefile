@@ -1,10 +1,16 @@
 all: dumpfontx bdf2fontx
 
-dumpfontx: src/dumpfontx.c
-	gcc -o dumpfontx src/dumpfontx.c src/fontx2.c -I./include
+build:
+	mkdir build
 
-bdf2fontx: src/bdf2fontx.c
-	gcc -Wall -o bdf2fontx src/bdf2fontx.c -I./include
+dumpfontx: build src/dumpfontx.c src/fontx2.c
+	gcc -o build/dumpfontx src/dumpfontx.c src/fontx2.c -I./include
+
+bdf2fontx: build src/bdf2fontx.c
+	gcc -Wall -o build/bdf2fontx src/bdf2fontx.c -I./include
+
+install: dumpfontx bdf2fontx
+	cp build/* ~/bin/
 
 clean:
-	rm dumpfontx bdf2fontx
+	rm -rf build
