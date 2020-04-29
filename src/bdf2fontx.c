@@ -84,7 +84,9 @@ int match(char *s, char *t)
 
 
 #define XLFDCONV \
- "FONT -%[^-]-%*[^-]-%*[^-]-%*[^-]-%*[^-]--%d-%*d-%*d-%*d-%*[^-]-%d-%[^-]-%*s"
+    "FONT -%[^-]-%*[^-]-%*[^-]-%*[^-]-%*[^-]--%d-%*d-%*d-%*d-%*[^-]-%d-%[^-]-%*s"
+#define XLFDCONV2 \
+    "FONT -%[^-]-%*[^-]-%*[^-]-%*[^-]-%*[^-]-%*[^-]-%d-%*d-%*d-%*d-%*[^-]-%d-%[^-]-%*s"
 /*      jis   fixed  medium r      normal  14 130 75  75  C      70 jisx0201 */
 
 void bdfheader(char *name, int *width, int *height, int *type, int *sjis)
@@ -103,6 +105,10 @@ void bdfheader(char *name, int *width, int *height, int *type, int *sjis)
         }
         if (match(s, "FONT ") == 0) {
             sscanf(s, XLFDCONV, name, height, width, coding);
+            if (-1 == *height) {
+                sscanf(s, XLFDCONV2, name, height, width, coding);
+            }
+
             *width /= 10;
             if (match(coding, "jisx0201") == 0) {
                 *type = 0;
