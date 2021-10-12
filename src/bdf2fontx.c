@@ -120,7 +120,10 @@ void bdfheader(char *name, int *width, int *height, int *type, int *sjis)
             } else {
                 *type = 0;
             }
-            break;
+        }
+
+        if (match(s, "FONTBOUNDINGBOX") == 0) {
+            sscanf(s, "FONTBOUNDINGBOX %*d %d %*d %*d", height);
         }
     }
 }

@@ -214,7 +214,7 @@ int main(int argc, char **argv)
             }
             for (uint8_t y = 0; y < glyph.height; y++) {
                 for (uint8_t x = 0; x < glyph.width; x++) {
-                    uint8_t set = *(glyph.buffer) & (0x80 >> (x % 8));
+                    uint8_t set = *(glyph.buffer + x / 8) & (0x80 >> (x % 8));
                     if (set) {
                         gdImageSetPixel(img, x0 + x, y0 + y, color);
                     }
