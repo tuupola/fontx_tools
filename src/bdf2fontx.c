@@ -123,7 +123,7 @@ void bdfheader(char *name, int *width, int *height, int *type, int *sjis)
         }
 
         if (match(s, "FONTBOUNDINGBOX") == 0) {
-            sscanf(s, "FONTBOUNDINGBOX %*d %d %*d %*d", height);
+            sscanf(s, "FONTBOUNDINGBOX %d %d %*d %*d", width, height);
         }
     }
 }
@@ -256,6 +256,14 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
                 if (fgets(s, BUFSIZ, stdin) == NULL) {
                     break;
                 }
+                /* Some characters may be smaller than reported header height */
+                if (match(s, "ENDCHAR") == 0) {
+                    break;
+                }
+                while(strlen(s) * 4 < convwidth) {
+                    s[strlen(s)-1] = '\0';
+                    strcat(s, "00\n");
+                }
                 sscanf(s, "%x", &p);
                 for (x = convwidth; x > 0; x -= 8) {
                     b = (p >> (x - 8)) & 0xff;
@@ -265,12 +273,22 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
                 }
             }
 
-            fgets(s, BUFSIZ, stdin);
+            /* Fill remaining lines if any with empty pixels */
+            while(y < height) {
+                for (x = convwidth; x > 0; x -= 8) {
+                   putc(0x00, gl); 
+                }
+                y++;
+            }
+
+            /* Ignore extra character lines if any */
+            while(match(s, "ENDCHAR") != 0 && fgets(s, BUFSIZ, stdin) != NULL);
+
             if (match(s, "ENDCHAR") != 0) {
                 fprintf(stderr, "no ENDCHAR at %d (0x%x)\n", n, n);
             } else {
                 fwprintf(stderr, L"%lc ", code);
-                fprintf(stderr, "%d (0x%x)\n", code, code);
+                fprintf(stderr, "%d (0x%x) (dim: %d, %d)\n", code, code, convwidth, y);
                 ++chars;
             }
         }
