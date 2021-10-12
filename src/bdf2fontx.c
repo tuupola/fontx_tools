@@ -222,6 +222,14 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
     lastcode = -1 /* For when there is code 0 */;
     /* Round up the number of horizontal dots to a multiple of 8. */
     convwidth = ((width + 7) / 8) * 8;
+
+    int *rawcharbuffer = malloc(height * convwidth / 8);
+
+    if(rawcharbuffer == NULL) {
+       fprintf(stderr, "error while allocating memory\n"); 
+       exit(-1);
+    }
+
     while(fgets(s, BUFSIZ, stdin) != NULL) {
         if (match(s, "ENCODING") == 0) {
             sscanf(s, "ENCODING %d", &n);
@@ -267,18 +275,28 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
                 sscanf(s, "%x", &p);
                 for (x = convwidth; x > 0; x -= 8) {
                     b = (p >> (x - 8)) & 0xff;
-                    if (code != 0) {
-                        putc(b, gl);
-                    }
+                    rawcharbuffer[(x / 8) + (y * convwidth / 8)] = b;
                 }
             }
 
-            /* Fill remaining lines if any with empty pixels */
-            while(y < height) {
-                for (x = convwidth; x > 0; x -= 8) {
-                   putc(0x00, gl); 
+
+            if (code != 0) {
+                int realcharacterheight = y;
+                /* Add empty pixels to fill empty space at top of character */
+                while(y < height) {
+                    for (x = convwidth; x > 0; x -= 8) {
+                        putc(0x00, gl); 
+                    }
+                    y++;
                 }
-                y++;
+
+                y = 0;
+                while(y < realcharacterheight) {
+                    for (x = convwidth; x > 0; x -= 8) {
+                        putc(rawcharbuffer[(x / 8) + (y * convwidth / 8)], gl); 
+                    }
+                    y++;
+                }
             }
 
             /* Ignore extra character lines if any */
@@ -288,11 +306,12 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
                 fprintf(stderr, "no ENDCHAR at %d (0x%x)\n", n, n);
             } else {
                 fwprintf(stderr, L"%lc ", code);
-                fprintf(stderr, "%d (0x%x) (dim: %d, %d)\n", code, code, convwidth, y);
+                fprintf(stderr, "%d (0x%x)\n", code, code);
                 ++chars;
             }
         }
     }
+    free(rawcharbuffer);
     fprintf(co, "%x %x\n", start, lastcode);
     ++*ntab;
     /* ANK font fills up to 0xff */
