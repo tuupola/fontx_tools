@@ -151,7 +151,7 @@ int main(int argc, char **argv)
 
     printf("\"%s\" (%dx%d) 0 - %d\n", meta.name, meta.width, meta.height, max_glyph);
 
-    for (uint16_t c = 1; c < max_glyph; c++) {
+    for (uint16_t c = 0; c < max_glyph; c++) {
         uint8_t status = fontx2_glyph(&glyph, c, font);
         if (FONTX2_OK == status) {
             out_glyph++;
