@@ -223,7 +223,9 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
     /* Round up the number of horizontal dots to a multiple of 8. */
     convwidth = ((width + 7) / 8) * 8;
 
-    int *rawcharbuffer = malloc(height * convwidth / 8);
+    //int *rawcharbuffer = malloc(height * convwidth / 8);
+    // TODO: above causes malloc(): corrupted top size error
+    int *rawcharbuffer = malloc(height * convwidth);
 
     if(rawcharbuffer == NULL) {
        fprintf(stderr, "error while allocating memory\n"); 
@@ -279,8 +281,10 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
                 }
             }
 
+            /* Type 0 font always starts from code 0 */
+            if ((0 == type) || (code != 0)) {
+                fprintf(stderr, "%d (0x%x)\n", code, code);
 
-            if (code != 0) {
                 int realcharacterheight = y;
                 /* Add empty pixels to fill empty space at top of character */
                 while(y < height) {
@@ -304,9 +308,7 @@ int collect(FILE *co, FILE *gl, int width, int height, int type, int *ntab, int 
 
             if (match(s, "ENDCHAR") != 0) {
                 fprintf(stderr, "no ENDCHAR at %d (0x%x)\n", n, n);
-            } else {
-                fwprintf(stderr, L"%lc ", code);
-                fprintf(stderr, "%d (0x%x)\n", code, code);
+            } else {                
                 ++chars;
             }
         }
